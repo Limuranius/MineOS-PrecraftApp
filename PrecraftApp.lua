@@ -110,12 +110,14 @@ function addPrecraftRow(precraft)
 
 	-- Создаём виджеты формы прекрафта
 	local itemInput = row_layout:setPosition(1, 1, row_layout:addChild(GUI.input(1, 1, ITEM_NAME_WIDTH, 3, 0xEEEEEE, 0x555555, 0x999999, 0xFFFFFF, 0x2D2D2D, precraft.name, "Имя предмета")))
-	local itemLabel = row_layout:setPosition(2, 1, row_layout:addChild(GUI.text(1, 1, 0xFFFFFF, precraft.label)))
+	local itemLabelsBox = row_layout:setPosition(2, 1, row_layout:addChild(GUI.comboBox(1, 1, ITEM_LABEL_WIDTH, 3, 0xEEEEEE, 0x2D2D2D, 0xCCCCCC, 0x888888)))
 	local itemCount = row_layout:setPosition(3, 1, row_layout:addChild(GUI.text(1, 1, 0xFFFFFF, "")))
 	local amountInput = row_layout:setPosition(4, 1, row_layout:addChild(GUI.input(1, 1, MAX_AMOUNT_WIDTH, 3, 0xEEEEEE, 0x555555, 0x999999, 0xFFFFFF, 0x2D2D2D, precraft.maxAmount, "Макс. количество")))
 	local isMatterSwitch = row_layout:setPosition(5, 1, row_layout:addChild(GUI.switchAndLabel(1, 1, SWITCH_WIDTH, 4, 0x66DB80, 0x1D1D1D, 0xEEEEEE, 0x999999, "Из материи?", precraft.isMatter)))
+	
 	local stepInput = row_layout:setPosition(6, 1, row_layout:addChild(GUI.input(1, 1, STEP_WIDTH, 3, 0xEEEEEE, 0x555555, 0x999999, 0xFFFFFF, 0x2D2D2D, precraft.step, "Шаг")))
 	local redstoneAddressBox = row_layout:setPosition(6, 1, row_layout:addChild(GUI.comboBox(1, 1, STEP_WIDTH, 3, 0xEEEEEE, 0x2D2D2D, 0xCCCCCC, 0x888888)))
+	
 	local removeButton = row_layout:setPosition(7, 1, row_layout:addChild(GUI.button(1, 1, DELETE_BUTTON_WIDTH, 3, 0xFFFFFF, 0x555555, 0x880000, 0xFFFFFF, "Удалить")))
 	local isValidLabel = row_layout:setPosition(8, 1, row_layout:addChild(GUI.text(1, 1, 0xFFFFFF, "")))
 	
@@ -128,6 +130,24 @@ function addPrecraftRow(precraft)
 		redstoneAddressBox.hidden = true
 	end
 
+	-- Находит все метки, подходящие под название файла и засовывает их в комбобокс
+	local updateRow = nil
+	local setItemLabels = function()
+		itemLabelsBox:clear()
+		local labels = utils.getItemLabels(itemInput.text)
+		for i, label in ipairs(labels) do
+			itemLabelsBox:addItem(label).onTouch = function()
+				precrafts[row_index].label = label
+				updateRow()
+			end
+		end
+		local chosenIndex = utils.indexOfItem(labels, precrafts[row_index].label)
+		if not chosenIndex then  -- Если сохранённый лейбл не найден
+			chosenIndex = 1
+		end
+		itemLabelsBox.selectedItem = chosenIndex
+	end
+
 	-- Проверяет правильность введённых данных и выводит результат
 	local validate = function()
 		if CM.isPrecraftValid(precrafts[row_index]) then
@@ -136,58 +156,67 @@ function addPrecraftRow(precraft)
 			isValidLabel.text = "Not valid"
 		end
 	end
-	validate()
 
 	-- Сохраняет данные строки в общий JSON файл. Вызывается каждый раз при изменении строки
 	local saveRowToJSON = function()
 		precrafts[row_index].name = itemInput.text
-		precrafts[row_index].label = itemLabel.text
+
+		local labelItem = itemLabelsBox:getItem(itemLabelsBox.selectedItem)
+		if labelItem then
+			precrafts[row_index].label = labelItem.text
+		else
+			precrafts[row_index].label = "Предмет не найден"
+		end
+
 		precrafts[row_index].maxAmount = tonumber(amountInput.text)
 		precrafts[row_index].isMatter = isMatterSwitch.switch.state
 		precrafts[row_index].step = tonumber(stepInput.text)
 		precrafts[row_index].redstoneAddress = redstoneAddressBox:getItem(redstoneAddressBox.selectedItem).text
 		savePrecraftsToJSON()
+	end
+
+	-- Обновляет и сохраняет состояние строки
+	updateRow = function()
+		setItemLabels()
+		saveRowToJSON()
 		validate()
 	end
 
 	-- Заполнение поля "Имя предмета"
 	itemInput.onInputFinished = function()
-		itemLabel.text = utils.getItemLabel(itemInput.text)
-		saveRowToJSON()
+		updateRow()
 	end
-
-	-- Запускаем обновление текущего количества предмета
-	local setItemCount = function()
-		local count = utils.getItemCount(itemInput.text)
-		itemCount.text = count.." из "
-	end
-	table.insert(handlers, event.addHandler(setItemCount, 1))
 
 	-- Заполнение поля "Макс. количество"
 	amountInput.onInputFinished = function()
-		saveRowToJSON()
+		updateRow()
 	end
 
 	-- Переключение "Материи"
 	isMatterSwitch.switch.onStateChanged = function()
 		stepInput.hidden = isMatterSwitch.switch.state
 		redstoneAddressBox.hidden = not isMatterSwitch.switch.state
-		saveRowToJSON()
+		updateRow()
 	end
 
 	-- Заполнение поля "Шаг"
 	stepInput.onInputFinished = function()
-		saveRowToJSON()
+		updateRow()
 	end
 
 	-- Заполение адресов контроллеров красного камня
 	for i, address in ipairs(utils.getRedstoneAddresses()) do
 		redstoneAddressBox:addItem(address).onTouch = function()
-			saveRowToJSON()
+			updateRow()
 		end
 	end
 	-- Устанавливаем выбранный адрес
-	redstoneAddressBox.selectedItem = utils.getIndexOfRedstoneAddress(precraft.redstoneAddress)
+	local chosenAddressIndex = utils.indexOfItem(utils.getRedstoneAddresses(), precraft.redstoneAddress)
+	if not chosenAddressIndex then
+		redstoneAddressBox.selectedItem = 1
+	else
+		redstoneAddressBox.selectedItem = chosenAddressIndex
+	end
 
 	-- Нажатие кнопки "Удалить"
 	removeButton.onTouch = function()
@@ -195,6 +224,8 @@ function addPrecraftRow(precraft)
 		table.remove(precrafts, row_index)
 		savePrecraftsToJSON()
 	end
+
+	updateRow()
 end
 
 function addPrecraftEmptyRow()
