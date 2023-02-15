@@ -15,12 +15,12 @@ local runningCrafts = {}
 
 -- Проверяет правильность данных
 function CraftManager.isPrecraftValid(precraft)
-	local check1 = utils.itemExist(precraft.name)  -- Предмет существует
+	local check1 = utils.itemExist(precraft.name, precraft.label)  -- Предмет существует
 	local check2 = tonumber(precraft.maxAmount)  -- maxAmount - число
 	-- Либо делается из материи, либо по заказу и кол-во за заказ указано числом
 	local check3 = precraft.isMatter or (not precraft.isMatter and tonumber(precraft.step))
 	-- Либо делается из материи, либо по заказу и для предмета существует заказ 
-	local check4 = precraft.isMatter or (not precraft.isMatter and utils.itemCraftable(precraft.name))
+	local check4 = precraft.isMatter or (not precraft.isMatter and utils.itemCraftable(precraft.name, precraft.label))
 	return check1 and check2 and check3 and check4
 end
 
@@ -36,6 +36,27 @@ function CraftManager.switchMatterStatus(precraft, isOn)
 end
 
 
+function CraftManager.turnOffUnusedRedstoneControllers(precrafts)
+	local usedAddresses = {}
+	for i, precraft in ipairs(precrafts) do
+		if precraft.isMatter then
+			usedAddresses[precraft.redstoneAddress] = true
+		end
+	end
+	for i, address in ipairs(utils.getRedstoneAddresses()) do
+		if not usedAddresses[address] then
+			component.proxy(address).setOutput(1, 0)
+		end
+	end
+end
+
+
+-- Возвращает уникальный ключ прекрафта (слепленное название и метка)
+function getKey(precraft)
+	return precraft.name..precraft.label
+end
+
+
 -- Возвращает true, если крафт всё ещё находится в процессе
 function CraftManager.craftIsRunning(craftStatus)
 	return not craftStatus.isCanceled() and not craftStatus.isDone() 
@@ -44,9 +65,9 @@ end
 
 -- Создаёт запрос на крафт
 function CraftManager.createCraftQuery(precraft)
-	local craft = ME.getCraftables({name=precraft.name})
+	local craft = ME.getCraftables({name=precraft.name, label=precraft.label})
 	local craftStatus = craft[1].request(precraft.step)
-	runningCrafts[precraft.name] = craftStatus
+	runningCrafts[getKey(precraft)] = craftStatus
 end
 
 
@@ -56,7 +77,7 @@ function CraftManager.checkPrecraft(precraft)
 		return
 	end
 
-	local itemCount = utils.getItemCount(precraft.name)
+	local itemCount = utils.getItemCount(precraft.name, precraft.label)
 
 	-- Проверяем, нужно ли крафтить
 	if itemCount < precraft.maxAmount then
@@ -64,7 +85,7 @@ function CraftManager.checkPrecraft(precraft)
 			CraftManager.switchMatterStatus(precraft, true)  -- Включаем подачу материи
 		else  -- Если предметы делаются заказами
 			-- Если крафт уже был запрошен и ещё не завершился
-			if runningCrafts[precraft.name] and CraftManager.craftIsRunning(runningCrafts[precraft.name]) then
+			if runningCrafts[getKey(precraft)] and CraftManager.craftIsRunning(runningCrafts[getKey(precraft)]) then
 				return
 			else  -- Крафт завершился, либо ещё не был запрошен
 				CraftManager.createCraftQuery(precraft)
@@ -86,6 +107,7 @@ local monitorHandler = nil  -- Переменная, в которую буде�
 function CraftManager.startMonitoring(precrafts)
 	local checkAllOnceFunc = function()
 		-- print("checkAllOnceFunc")
+		CraftManager.turnOffUnusedRedstoneControllers(precrafts)  -- Выключаем все случайно включенные редстоуны
 		for i, v in ipairs(precrafts) do
 			CraftManager.checkPrecraft(v)
 		end
