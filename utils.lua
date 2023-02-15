@@ -12,24 +12,26 @@ function utils.getRedstoneAddresses()
 	return result
 end
 
-function utils.getIndexOfRedstoneAddress(address)
-	for i, v in ipairs(utils.getRedstoneAddresses()) do
-		if v == address then
+
+-- Возвращает индекс элемента в массиве или nil, если его в массиве нет
+function utils.indexOfItem(arr, target)
+	for i, v in ipairs(arr) do
+		if v == target then
 			return i
 		end
 	end
-	return 1
+	return nil
 end
 
 
-function utils.itemExist(item_name)
-	local item = ME.getItemsInNetwork({name=item_name})
+function utils.itemExist(name, label)
+	local item = ME.getItemsInNetwork({name=name, label=label})
 	return item.n ~= 0
 end
 
 
-function utils.itemCraftable(item_name)
-	local item = ME.getItemsInNetwork({name=item_name})
+function utils.itemCraftable(name, label)
+	local item = ME.getItemsInNetwork({name=name, label=label})
 	if item.n == 0 then
 		return false
 	end
@@ -37,8 +39,8 @@ function utils.itemCraftable(item_name)
 end
 
 
-function utils.getItemCount(item_name)
-	local item = ME.getItemsInNetwork({name=item_name})
+function utils.getItemCount(name, label)
+	local item = ME.getItemsInNetwork({name=name, label=label})
 	if item.n == 0 then
 		return 0
 	else
@@ -46,13 +48,15 @@ function utils.getItemCount(item_name)
 	end
 end
 
-function utils.getItemLabel(item_name)
- 	local item = ME.getItemsInNetwork({name=item_name})
-	if item.n == 0 then
-		return "Предмет не найден"
-	else
-		return item[1].label
+
+function utils.getItemLabels(item_name)
+ 	local items = ME.getItemsInNetwork({name=item_name})
+ 	local labels = {}
+	for i, item in ipairs(items) do
+		table.insert(labels, item.label)
 	end
+	return labels
 end
+
 
 return utils
