@@ -44,11 +44,27 @@ function CraftManager.turnOffUnusedRedstoneControllers(precrafts)
 		end
 	end
 	for i, address in ipairs(utils.getRedstoneAddresses()) do
-		if not usedAddresses[address] then
+		local redstoneController = component.proxy(address)
+		-- Проверяем текущий выход сверху (лучше лишний раз не вызывать set метод, так как он дорогой)
+		local currSignal = redstoneController.getOutput(1)   
+		if currSignal > 0 and not usedAddresses[address] then
 			component.proxy(address).setOutput(1, 0)
 		end
 	end
 end
+
+
+function CraftManager.turnOffAllRedstoneControllers()
+	for i, address in ipairs(utils.getRedstoneAddresses()) do
+		local redstoneController = component.proxy(address)
+		-- Проверяем текущий выход сверху (лучше лишний раз не вызывать set метод, так как он дорогой)
+		local currSignal = redstoneController.getOutput(1)   
+		if currSignal > 0 then
+			component.proxy(address).setOutput(1, 0)
+		end
+	end
+end
+
 
 
 -- Возвращает уникальный ключ прекрафта (слепленное название и метка)
@@ -66,7 +82,7 @@ end
 -- Создаёт запрос на крафт
 function CraftManager.createCraftQuery(precraft)
 	local craft = ME.getCraftables({name=precraft.name, label=precraft.label})
-	local craftStatus = craft[1].request(precraft.step)
+	local craftStatus = craft[1].request(tonumber(precraft.step))
 	runningCrafts[getKey(precraft)] = craftStatus
 end
 
@@ -80,7 +96,7 @@ function CraftManager.checkPrecraft(precraft)
 	local itemCount = utils.getItemCount(precraft.name, precraft.label)
 
 	-- Проверяем, нужно ли крафтить
-	if itemCount < precraft.maxAmount then
+	if itemCount < tonumber(precraft.maxAmount) then
 		if precraft.isMatter then  -- Если предметы делаются из материи
 			CraftManager.switchMatterStatus(precraft, true)  -- Включаем подачу материи
 		else  -- Если предметы делаются заказами
@@ -116,8 +132,9 @@ function CraftManager.startMonitoring(precrafts)
 end
 
 
-function CraftManager.stopMonitoring(precrafts)
+function CraftManager.stopMonitoring()
 	event.removeHandler(monitorHandler)
+	CraftManager.turnOffAllRedstoneControllers()
 end
 
 
