@@ -1,6 +1,6 @@
 local GUI = require("GUI")
 
-local ROWS_ON_PAGE = 10
+local ROWS_ON_PAGE = 7
 local ITEM_NAME_WIDTH = 30
 local ITEM_LABEL_WIDTH = 20
 local ITEM_COUNT_WIDTH = 10
@@ -11,6 +11,10 @@ local DELETE_BUTTON_WIDTH = 15
 local VALID_LABEL_WIDTH = 15
 local SPACING = 2
 
+local PREV_PAGE_BUTTON_X = 1
+local NEXT_PAGE_BUTTON_X = 40
+local ADD_PRECRAFT_BUTTON_X = 72
+local EXIT_BUTTON_X = 104
 
 local view = {}
 
@@ -29,6 +33,17 @@ view.forms = {}
 
 local currentPage = 1
 
+
+-- Возвращает количество страниц
+function getPageCount()
+	return math.ceil(#view.forms / ROWS_ON_PAGE)
+end
+
+
+local currPageLabel = workspace:addChild(GUI.label(30, 1, 10, 3, 0xFFFFFF, ""))
+currPageLabel:setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_CENTER)
+
+
 function showPage(page)
 	-- Прячем строки с предыдущей страницы
 	local hide_begin_index = (currentPage-1) * ROWS_ON_PAGE + 1
@@ -43,6 +58,7 @@ function showPage(page)
 		view.forms[i].hidden = false
 	end
 	currentPage = page
+	currPageLabel.text = tostring(page)
 end
 
 
@@ -93,20 +109,31 @@ end
 
 -- Кнопки верхнего меню ------------------
 
-local prevButton = workspace:addChild(GUI.button(1, 1, 30, 3, 0xFFFFFF, 0x555555, 0x880000, 0xFFFFFF, "Предыдущая страница"))
+local prevButton = workspace:addChild(GUI.button(PREV_PAGE_BUTTON_X, 1, 30, 3, 0xFFFFFF, 0x555555, 0x880000, 0xFFFFFF, "Предыдущая страница"))
 prevButton.onTouch = function()
-	showPage(currentPage - 1)
+	if currentPage - 1 <= 0 then
+		showPage(1)
+	else
+		showPage(currentPage - 1)
+	end
 end
 
-local nextButton = workspace:addChild(GUI.button(32, 1, 30, 3, 0xFFFFFF, 0x555555, 0x880000, 0xFFFFFF, "Следующая страница"))
+local nextButton = workspace:addChild(GUI.button(NEXT_PAGE_BUTTON_X, 1, 30, 3, 0xFFFFFF, 0x555555, 0x880000, 0xFFFFFF, "Следующая страница"))
 nextButton.onTouch = function()
-	showPage(currentPage + 1)
+	local pageCount = getPageCount() 
+	if pageCount == 0 then
+		showPage(1)
+	elseif currentPage + 1 > pageCount then
+		showPage(pageCount)
+	else
+		showPage(currentPage + 1)
+	end
 end
 
-local addPrecraftButton = workspace:addChild(GUI.button(64, 1, 30, 3, 0xFFFFFF, 0x555555, 0x880000, 0xFFFFFF, "Добавить прекрафт"))
+local addPrecraftButton = workspace:addChild(GUI.button(ADD_PRECRAFT_BUTTON_X, 1, 30, 3, 0xFFFFFF, 0x555555, 0x880000, 0xFFFFFF, "Добавить прекрафт"))
 addPrecraftButton.onTouch = function() view.addPrecraftButtonFunc() end
 
-local exitButton = workspace:addChild(GUI.button(96, 1, 30, 3, 0xFFFFFF, 0x555555, 0x880000, 0xFFFFFF, "Выйти"))
+local exitButton = workspace:addChild(GUI.button(EXIT_BUTTON_X, 1, 30, 3, 0xFFFFFF, 0x555555, 0x880000, 0xFFFFFF, "Выйти"))
 exitButton.onTouch = function() view.exitButtonFunc() end
 
 
@@ -117,6 +144,7 @@ function view.start()
 end
 
 function view.exit()
+	view.forms = {}
 	workspace:stop()
 end
 
