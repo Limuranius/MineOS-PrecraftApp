@@ -4,7 +4,7 @@ local GUI = require("GUI")
 local utils = require("/Precraft/utils.lua")
 
 
-local TIME_INTERVAL = 3  
+local TIME_INTERVAL = 10  
 
 
 local CraftManager = {}
